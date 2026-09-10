@@ -1,1 +1,2 @@
 - [Shared inbox link flow](shared-inbox-links.md) — shared notifications are tokenized links claimed into the recipient’s authenticated inbox on open.
+- [Clerk device verification](clerk-device-verification.md) — native Google OAuth needs signed-device testing and may be blocked by unavailable Auth pane access.
