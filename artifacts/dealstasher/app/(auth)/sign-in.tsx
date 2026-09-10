@@ -8,6 +8,11 @@ import { PrimaryButton } from '@/components/PrimaryButton';
 import { Screen } from '@/components/Screen';
 import { useColors } from '@/hooks/useColors';
 import { buildAuthRoute, getAuthRedirect } from '@/lib/authRedirect';
+import {
+  getAuthErrorMessage,
+  SIGN_IN_INCOMPLETE_MESSAGE,
+  SIGN_IN_RETRY_MESSAGE,
+} from '@/lib/authErrors';
 
 export default function SignIn() {
   const colors = useColors();
@@ -21,18 +26,25 @@ export default function SignIn() {
 
   const submit = async () => {
     setMessage('');
-    const result = await signIn.password({ emailAddress: email.trim(), password });
-    if (result.error) {
-      setMessage(result.error.message || 'That sign-in did not work. Check your details and try again.');
-      return;
-    }
-    if (signIn.status === 'complete') {
-      await signIn.finalize();
-      router.replace(authRedirect as Href);
-    } else {
-      setMessage('This account needs another verification step before it can sign in.');
+    try {
+      const result = await signIn.password({ emailAddress: email.trim(), password });
+      if (result.error) {
+        setMessage(getAuthErrorMessage(result.error, 'signIn') ?? SIGN_IN_RETRY_MESSAGE);
+        return;
+      }
+      if (signIn.status === 'complete') {
+        await signIn.finalize();
+        router.replace(authRedirect as Href);
+      } else {
+        setMessage(SIGN_IN_INCOMPLETE_MESSAGE);
+      }
+    } catch (error) {
+      setMessage(getAuthErrorMessage(error, 'signIn') ?? SIGN_IN_RETRY_MESSAGE);
     }
   };
+
+  const fieldMessage = getAuthErrorMessage(errors?.fields?.identifier, 'signIn');
+  const visibleMessage = message || fieldMessage;
 
   return (
     <Screen>
@@ -50,8 +62,7 @@ export default function SignIn() {
           <TextInput style={[styles.input, { color: colors.foreground, backgroundColor: colors.card, borderColor: colors.border }]} autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} placeholder="you@example.com" placeholderTextColor={colors.mutedForeground} />
           <Text style={[styles.label, { color: colors.foreground }]}>Password</Text>
           <TextInput style={[styles.input, { color: colors.foreground, backgroundColor: colors.card, borderColor: colors.border }]} value={password} onChangeText={setPassword} secureTextEntry placeholder="Your password" placeholderTextColor={colors.mutedForeground} />
-          {!!errors?.fields?.identifier?.message && <Text style={[styles.error, { color: colors.destructive }]}>{errors.fields.identifier.message}</Text>}
-          {!!message && <Text style={[styles.error, { color: colors.destructive }]}>{message}</Text>}
+          {!!visibleMessage && <Text style={[styles.error, { color: colors.destructive }]}>{visibleMessage}</Text>}
           <PrimaryButton label="Sign in" onPress={submit} loading={fetchStatus === 'fetching'} disabled={!email || !password} style={styles.button} />
           <View style={styles.switchRow}>
             <Text style={[styles.switchText, { color: colors.mutedForeground }]}>New to DealStasher?</Text>

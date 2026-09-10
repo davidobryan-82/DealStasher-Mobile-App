@@ -8,6 +8,11 @@ import { PrimaryButton } from '@/components/PrimaryButton';
 import { Screen } from '@/components/Screen';
 import { useColors } from '@/hooks/useColors';
 import { buildAuthRoute, getAuthRedirect } from '@/lib/authRedirect';
+import {
+  EMAIL_VERIFICATION_MESSAGE,
+  getAuthErrorMessage,
+  SIGN_UP_RETRY_MESSAGE,
+} from '@/lib/authErrors';
 
 export default function SignUp() {
   const colors = useColors();
@@ -22,28 +27,47 @@ export default function SignUp() {
 
   const begin = async () => {
     setMessage('');
-    const result = await signUp.password({ emailAddress: email.trim(), password });
-    if (result.error) {
-      setMessage(result.error.message || 'Please check your details and try again.');
-      return;
+    try {
+      const result = await signUp.password({ emailAddress: email.trim(), password });
+      if (result.error) {
+        setMessage(getAuthErrorMessage(result.error, 'signUp') ?? SIGN_UP_RETRY_MESSAGE);
+        return;
+      }
+      await signUp.verifications.sendEmailCode();
+    } catch (error) {
+      setMessage(getAuthErrorMessage(error, 'signUp') ?? SIGN_UP_RETRY_MESSAGE);
     }
-    await signUp.verifications.sendEmailCode();
   };
 
   const verify = async () => {
     setMessage('');
-    const result = await signUp.verifications.verifyEmailCode({ code: code.trim() });
-    if (result.error) {
-      setMessage(result.error.message || 'That code was not accepted.');
-      return;
+    try {
+      const result = await signUp.verifications.verifyEmailCode({ code: code.trim() });
+      if (result.error) {
+        setMessage(getAuthErrorMessage(result.error, 'emailVerification') ?? EMAIL_VERIFICATION_MESSAGE);
+        return;
+      }
+      if (signUp.status === 'complete') {
+        await signUp.finalize();
+        router.replace(authRedirect as Href);
+      }
+    } catch (error) {
+      setMessage(getAuthErrorMessage(error, 'emailVerification') ?? EMAIL_VERIFICATION_MESSAGE);
     }
-    if (signUp.status === 'complete') {
-      await signUp.finalize();
-      router.replace(authRedirect as Href);
+  };
+
+  const resend = async () => {
+    setMessage('');
+    try {
+      await signUp.verifications.sendEmailCode();
+    } catch (error) {
+      setMessage(getAuthErrorMessage(error, 'emailVerification') ?? EMAIL_VERIFICATION_MESSAGE);
     }
   };
 
   const isVerification = signUp.status === 'missing_requirements';
+  const fieldMessage = getAuthErrorMessage(errors?.fields?.emailAddress, 'signUpEmail');
+  const visibleMessage = message || fieldMessage;
 
   return (
     <Screen>
@@ -61,7 +85,7 @@ export default function SignUp() {
               <Text style={[styles.label, { color: colors.foreground }]}>Verification code</Text>
               <TextInput style={[styles.input, { color: colors.foreground, backgroundColor: colors.card, borderColor: colors.border }]} value={code} onChangeText={setCode} keyboardType="number-pad" placeholder="6-digit code" placeholderTextColor={colors.mutedForeground} />
               <PrimaryButton label="Verify email" onPress={verify} loading={fetchStatus === 'fetching'} disabled={!code} style={styles.button} />
-              <Pressable onPress={() => signUp.verifications.sendEmailCode()} style={styles.resend}><Text style={[styles.link, { color: colors.primary }]}>Send a new code</Text></Pressable>
+              <Pressable onPress={resend} style={styles.resend}><Text style={[styles.link, { color: colors.primary }]}>Send a new code</Text></Pressable>
             </>
           ) : (
             <>
@@ -69,13 +93,12 @@ export default function SignUp() {
               <TextInput style={[styles.input, { color: colors.foreground, backgroundColor: colors.card, borderColor: colors.border }]} autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} placeholder="you@example.com" placeholderTextColor={colors.mutedForeground} />
               <Text style={[styles.label, { color: colors.foreground }]}>Password</Text>
               <TextInput style={[styles.input, { color: colors.foreground, backgroundColor: colors.card, borderColor: colors.border }]} value={password} onChangeText={setPassword} secureTextEntry placeholder="At least 8 characters" placeholderTextColor={colors.mutedForeground} />
-              {!!errors?.fields?.emailAddress?.message && <Text style={[styles.error, { color: colors.destructive }]}>{errors.fields.emailAddress.message}</Text>}
-              {!!message && <Text style={[styles.error, { color: colors.destructive }]}>{message}</Text>}
+              {!!visibleMessage && <Text style={[styles.error, { color: colors.destructive }]}>{visibleMessage}</Text>}
               <View nativeID="clerk-captcha" />
               <PrimaryButton label="Create account" onPress={begin} loading={fetchStatus === 'fetching'} disabled={!email || password.length < 8} style={styles.button} />
             </>
           )}
-          {!!message && isVerification && <Text style={[styles.error, { color: colors.destructive }]}>{message}</Text>}
+          {!!visibleMessage && isVerification && <Text style={[styles.error, { color: colors.destructive }]}>{visibleMessage}</Text>}
           <View style={styles.switchRow}>
             <Text style={[styles.switchText, { color: colors.mutedForeground }]}>Already have an account?</Text>
             <Link href={buildAuthRoute('/sign-in', redirect)} asChild><Pressable><Text style={[styles.link, { color: colors.primary }]}>Sign in</Text></Pressable></Link>
