@@ -45,8 +45,15 @@ public class DealStasherNotificationModule extends ReactContextBaseJavaModule {
         getReactApplicationContext().getContentResolver(),
         "enabled_notification_listeners"
       );
-      boolean enabled = enabledListeners != null &&
-        enabledListeners.contains(getReactApplicationContext().getPackageName());
+      boolean enabled = false;
+      if (enabledListeners != null) {
+        for (String listener : enabledListeners.split(":")) {
+          if (getReactApplicationContext().getPackageName().equals(listener)) {
+            enabled = true;
+            break;
+          }
+        }
+      }
       promise.resolve(enabled ? "enabled" : "disabled");
     } catch (Exception error) {
       promise.reject("STATUS_ERROR", "Could not read Notification Access status.", error);
