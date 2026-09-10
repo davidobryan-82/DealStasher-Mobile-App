@@ -6,6 +6,7 @@ import { useRouter, type Href } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useColors } from '@/hooks/useColors';
+import { getAuthRedirect } from '@/lib/authRedirect';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -46,7 +47,7 @@ export function GoogleAuthButton({ redirect }: GoogleAuthButtonProps) {
 
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
-        router.replace((redirect || '/') as Href);
+        router.replace(getAuthRedirect(redirect) as Href);
         return;
       }
 

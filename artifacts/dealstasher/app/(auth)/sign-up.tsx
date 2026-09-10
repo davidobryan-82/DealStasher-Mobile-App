@@ -7,12 +7,14 @@ import { GoogleAuthButton } from '@/components/GoogleAuthButton';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { Screen } from '@/components/Screen';
 import { useColors } from '@/hooks/useColors';
+import { buildAuthRoute, getAuthRedirect } from '@/lib/authRedirect';
 
 export default function SignUp() {
   const colors = useColors();
   const router = useRouter();
   const { redirect } = useLocalSearchParams<{ redirect?: string }>();
   const { signUp, errors, fetchStatus } = useSignUp();
+  const authRedirect = getAuthRedirect(redirect);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
@@ -37,7 +39,7 @@ export default function SignUp() {
     }
     if (signUp.status === 'complete') {
       await signUp.finalize();
-      router.replace((typeof redirect === 'string' ? redirect : '/') as Href);
+      router.replace(authRedirect as Href);
     }
   };
 
@@ -53,7 +55,7 @@ export default function SignUp() {
             <Text style={[styles.title, { color: colors.foreground }]}>{isVerification ? 'Check your inbox.' : 'Never lose a good deal again.'}</Text>
             <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>{isVerification ? `We sent a verification code to ${email}.` : 'Create your free account and keep the offers your phone forgets.'}</Text>
           </View>
-          {!isVerification && <><GoogleAuthButton redirect={typeof redirect === 'string' ? redirect : undefined} /><View style={styles.divider}><View style={[styles.dividerLine, { backgroundColor: colors.border }]} /><Text style={[styles.dividerText, { color: colors.mutedForeground }]}>OR</Text><View style={[styles.dividerLine, { backgroundColor: colors.border }]} /></View></>}
+          {!isVerification && <><GoogleAuthButton redirect={authRedirect} /><View style={styles.divider}><View style={[styles.dividerLine, { backgroundColor: colors.border }]} /><Text style={[styles.dividerText, { color: colors.mutedForeground }]}>OR</Text><View style={[styles.dividerLine, { backgroundColor: colors.border }]} /></View></>}
           {isVerification ? (
             <>
               <Text style={[styles.label, { color: colors.foreground }]}>Verification code</Text>
@@ -76,7 +78,7 @@ export default function SignUp() {
           {!!message && isVerification && <Text style={[styles.error, { color: colors.destructive }]}>{message}</Text>}
           <View style={styles.switchRow}>
             <Text style={[styles.switchText, { color: colors.mutedForeground }]}>Already have an account?</Text>
-            <Link href={{ pathname: '/sign-in', params: typeof redirect === 'string' ? { redirect } : undefined }} asChild><Pressable><Text style={[styles.link, { color: colors.primary }]}>Sign in</Text></Pressable></Link>
+            <Link href={buildAuthRoute('/sign-in', redirect)} asChild><Pressable><Text style={[styles.link, { color: colors.primary }]}>Sign in</Text></Pressable></Link>
           </View>
           <Text style={[styles.legal, { color: colors.mutedForeground }]}>Free for 30 days, then $1.99/month or $20/year.</Text>
         </ScrollView>

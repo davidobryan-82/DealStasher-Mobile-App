@@ -7,12 +7,14 @@ import { GoogleAuthButton } from '@/components/GoogleAuthButton';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { Screen } from '@/components/Screen';
 import { useColors } from '@/hooks/useColors';
+import { buildAuthRoute, getAuthRedirect } from '@/lib/authRedirect';
 
 export default function SignIn() {
   const colors = useColors();
   const router = useRouter();
   const { redirect } = useLocalSearchParams<{ redirect?: string }>();
   const { signIn, errors, fetchStatus } = useSignIn();
+  const authRedirect = getAuthRedirect(redirect);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
@@ -26,7 +28,7 @@ export default function SignIn() {
     }
     if (signIn.status === 'complete') {
       await signIn.finalize();
-      router.replace((typeof redirect === 'string' ? redirect : '/') as Href);
+      router.replace(authRedirect as Href);
     } else {
       setMessage('This account needs another verification step before it can sign in.');
     }
@@ -42,7 +44,7 @@ export default function SignIn() {
             <Text style={[styles.title, { color: colors.foreground }]}>Your deals are still here.</Text>
             <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>Keep notifications for a year instead of your OS max 24 hours.</Text>
           </View>
-          <GoogleAuthButton redirect={typeof redirect === 'string' ? redirect : undefined} />
+          <GoogleAuthButton redirect={authRedirect} />
           <View style={styles.divider}><View style={[styles.dividerLine, { backgroundColor: colors.border }]} /><Text style={[styles.dividerText, { color: colors.mutedForeground }]}>OR</Text><View style={[styles.dividerLine, { backgroundColor: colors.border }]} /></View>
           <Text style={[styles.label, { color: colors.foreground }]}>Email address</Text>
           <TextInput style={[styles.input, { color: colors.foreground, backgroundColor: colors.card, borderColor: colors.border }]} autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} placeholder="you@example.com" placeholderTextColor={colors.mutedForeground} />
@@ -53,7 +55,7 @@ export default function SignIn() {
           <PrimaryButton label="Sign in" onPress={submit} loading={fetchStatus === 'fetching'} disabled={!email || !password} style={styles.button} />
           <View style={styles.switchRow}>
             <Text style={[styles.switchText, { color: colors.mutedForeground }]}>New to DealStasher?</Text>
-            <Link href={{ pathname: '/sign-up', params: typeof redirect === 'string' ? { redirect } : undefined }} asChild>
+            <Link href={buildAuthRoute('/sign-up', redirect)} asChild>
               <Pressable><Text style={[styles.link, { color: colors.primary }]}>Create an account</Text></Pressable>
             </Link>
           </View>

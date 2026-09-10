@@ -8,6 +8,7 @@ import { useClaimSharedNotification, useGetSharedNotification } from '@workspace
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { Screen } from '@/components/Screen';
 import { useColors } from '@/hooks/useColors';
+import { buildAuthRoute, getSharedInboxRedirect } from '@/lib/authRedirect';
 
 export default function SharedNotification() {
   const colors = useColors();
@@ -50,7 +51,7 @@ export default function SharedNotification() {
         <Text style={[styles.title, { color: colors.foreground }]}>{notification.notificationTitle}</Text>
         <Text style={[styles.body, { color: colors.mutedForeground }]}>{notification.notificationBody}</Text>
         <View style={[styles.savedCard, { backgroundColor: colors.card, borderColor: colors.border }]}><Feather name="inbox" size={17} color={colors.primary} /><Text style={[styles.savedTitle, { color: colors.foreground }]}>{claim.data ? 'Saved to your inbox' : isSignedIn ? 'Saving to your inbox…' : 'Sign in to save this'}</Text><Text style={[styles.savedBody, { color: colors.mutedForeground }]}>{isSignedIn ? 'You can find this message anytime from the profile menu.' : 'Create or sign in to a DealStasher account so this shared notification stays with you.'}</Text></View>
-        {!isSignedIn && <PrimaryButton label="Sign in to save it" onPress={() => router.push({ pathname: '/sign-in', params: { redirect: `/inbox/${shareToken}` } })} style={styles.button} />}
+        {!isSignedIn && <PrimaryButton label="Sign in to save it" onPress={() => router.push(buildAuthRoute('/sign-in', getSharedInboxRedirect(shareToken ?? '')))} style={styles.button} />}
         {!!notification.actionUrl && <Pressable onPress={openOffer} style={[styles.offerButton, { backgroundColor: colors.secondary }]}><Feather name="external-link" size={17} color={colors.foreground} /><Text style={[styles.offerText, { color: colors.foreground }]}>Open original offer</Text></Pressable>}
       </ScrollView>
     </Screen>
