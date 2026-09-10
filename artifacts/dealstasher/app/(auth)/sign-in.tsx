@@ -1,5 +1,5 @@
 import { useSignIn } from '@clerk/expo';
-import { Link, useRouter } from 'expo-router';
+import { Link, useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import React, { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { BrandMark } from '@/components/BrandMark';
@@ -10,6 +10,7 @@ import { useColors } from '@/hooks/useColors';
 export default function SignIn() {
   const colors = useColors();
   const router = useRouter();
+  const { redirect } = useLocalSearchParams<{ redirect?: string }>();
   const { signIn, errors, fetchStatus } = useSignIn();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -24,7 +25,7 @@ export default function SignIn() {
     }
     if (signIn.status === 'complete') {
       await signIn.finalize();
-      router.replace('/');
+      router.replace((typeof redirect === 'string' ? redirect : '/') as Href);
     } else {
       setMessage('This account needs another verification step before it can sign in.');
     }
@@ -49,7 +50,7 @@ export default function SignIn() {
           <PrimaryButton label="Sign in" onPress={submit} loading={fetchStatus === 'fetching'} disabled={!email || !password} style={styles.button} />
           <View style={styles.switchRow}>
             <Text style={[styles.switchText, { color: colors.mutedForeground }]}>New to DealStasher?</Text>
-            <Link href="/sign-up" asChild>
+            <Link href={{ pathname: '/sign-up', params: typeof redirect === 'string' ? { redirect } : undefined }} asChild>
               <Pressable><Text style={[styles.link, { color: colors.primary }]}>Create an account</Text></Pressable>
             </Link>
           </View>

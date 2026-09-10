@@ -1,5 +1,5 @@
 import { useSignUp } from '@clerk/expo';
-import { Link, useRouter } from 'expo-router';
+import { Link, useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import React, { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { BrandMark } from '@/components/BrandMark';
@@ -10,6 +10,7 @@ import { useColors } from '@/hooks/useColors';
 export default function SignUp() {
   const colors = useColors();
   const router = useRouter();
+  const { redirect } = useLocalSearchParams<{ redirect?: string }>();
   const { signUp, errors, fetchStatus } = useSignUp();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -35,7 +36,7 @@ export default function SignUp() {
     }
     if (signUp.status === 'complete') {
       await signUp.finalize();
-      router.replace('/');
+      router.replace((typeof redirect === 'string' ? redirect : '/') as Href);
     }
   };
 
@@ -73,7 +74,7 @@ export default function SignUp() {
           {!!message && isVerification && <Text style={[styles.error, { color: colors.destructive }]}>{message}</Text>}
           <View style={styles.switchRow}>
             <Text style={[styles.switchText, { color: colors.mutedForeground }]}>Already have an account?</Text>
-            <Link href="/sign-in" asChild><Pressable><Text style={[styles.link, { color: colors.primary }]}>Sign in</Text></Pressable></Link>
+            <Link href={{ pathname: '/sign-in', params: typeof redirect === 'string' ? { redirect } : undefined }} asChild><Pressable><Text style={[styles.link, { color: colors.primary }]}>Sign in</Text></Pressable></Link>
           </View>
           <Text style={[styles.legal, { color: colors.mutedForeground }]}>Free for 30 days, then $1.99/month or $20/year.</Text>
         </ScrollView>

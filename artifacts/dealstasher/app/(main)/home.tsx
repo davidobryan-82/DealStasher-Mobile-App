@@ -33,6 +33,7 @@ export default function Home() {
   const colors = useColors();
   const router = useRouter();
   const { notifications, toggleFlag } = useDealStasher();
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(true);
   const [searchText, setSearchText] = useState('');
   const [appName, setAppName] = useState('All apps');
@@ -60,7 +61,15 @@ export default function Home() {
     <Screen>
       <View style={styles.header}>
         <BrandMark />
-        <Pressable testID="profile-button" onPress={() => router.push('/profile')} style={[styles.profileButton, { backgroundColor: colors.card, borderColor: colors.border }]}><Feather name="user" size={18} color={colors.foreground} /></Pressable>
+        <View style={styles.profileMenuAnchor}>
+          <Pressable testID="profile-button" onPress={() => setProfileMenuOpen(!profileMenuOpen)} style={[styles.profileButton, { backgroundColor: colors.card, borderColor: colors.border }]}><Feather name="user" size={18} color={colors.foreground} /></Pressable>
+          {profileMenuOpen && (
+            <View style={[styles.profileMenu, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Pressable onPress={() => { setProfileMenuOpen(false); router.push('/inbox'); }} style={styles.profileMenuItem}><Feather name="inbox" size={16} color={colors.primary} /><Text style={[styles.profileMenuText, { color: colors.foreground }]}>Friend inbox</Text></Pressable>
+              <Pressable onPress={() => { setProfileMenuOpen(false); router.push('/profile'); }} style={styles.profileMenuItem}><Feather name="user" size={16} color={colors.mutedForeground} /><Text style={[styles.profileMenuText, { color: colors.foreground }]}>Profile & settings</Text></Pressable>
+            </View>
+          )}
+        </View>
       </View>
       <FlatList
         data={filtered}
@@ -99,6 +108,10 @@ export default function Home() {
 const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 22, paddingTop: 16, paddingBottom: 4 },
   profileButton: { width: 38, height: 38, borderRadius: 13, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  profileMenuAnchor: { position: 'relative', zIndex: 5 },
+  profileMenu: { position: 'absolute', top: 46, right: 0, width: 190, borderWidth: 1, borderRadius: 15, paddingVertical: 6, shadowColor: '#000', shadowOpacity: 0.22, shadowRadius: 12, shadowOffset: { width: 0, height: 5 }, elevation: 5 },
+  profileMenuItem: { minHeight: 43, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 13 },
+  profileMenuText: { fontFamily: 'Inter_600SemiBold', fontSize: 13 },
   listContent: { paddingHorizontal: 22, paddingBottom: 30 },
   intro: { paddingTop: 27, paddingBottom: 22 },
   greeting: { fontFamily: 'Inter_700Bold', fontSize: 11, letterSpacing: 1.4 },

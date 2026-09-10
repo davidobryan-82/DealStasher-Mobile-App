@@ -8,9 +8,36 @@
     "scheme": "dealstasher",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "supportsTablet": false
+      "supportsTablet": false,
+      "associatedDomains": [
+        "applinks:dealstasher.com",
+        "applinks:www.dealstasher.com"
+      ]
     },
-    "android": {},
+    "android": {
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ],
+          "data": [
+            {
+              "scheme": "https",
+              "host": "dealstasher.com",
+              "pathPrefix": "/inbox"
+            },
+            {
+              "scheme": "https",
+              "host": "www.dealstasher.com",
+              "pathPrefix": "/inbox"
+            }
+          ]
+        }
+      ]
+    },
     "web": {
       "favicon": "./assets/images/icon.png"
     },

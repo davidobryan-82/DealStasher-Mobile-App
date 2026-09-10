@@ -10,6 +10,137 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: inbox
+    description: Shared notifications and personal inbox operations
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+    CreateInboxShareRequest:
+      type: object
+      properties:
+        senderName:
+          type: string
+          minLength: 1
+          maxLength: 80
+        message:
+          type: string
+          maxLength: 50
+        notificationTitle:
+          type: string
+          minLength: 1
+          maxLength: 200
+        notificationBody:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        actionUrl:
+          type: string
+          format: uri
+          nullable: true
+      required:
+        - senderName
+        - message
+        - notificationTitle
+        - notificationBody
+    InboxShare:
+      type: object
+      properties:
+        token:
+          type: string
+        url:
+          type: string
+          format: uri
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - token
+        - url
+        - createdAt
+    SharedNotification:
+      type: object
+      properties:
+        token:
+          type: string
+        senderName:
+          type: string
+        message:
+          type: string
+        notificationTitle:
+          type: string
+        notificationBody:
+          type: string
+        actionUrl:
+          type: string
+          format: uri
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        claimed:
+          type: boolean
+      required:
+        - token
+        - senderName
+        - message
+        - notificationTitle
+        - notificationBody
+        - createdAt
+        - claimed
+    InboxItem:
+      type: object
+      properties:
+        id:
+          type: string
+        token:
+          type: string
+        senderName:
+          type: string
+        message:
+          type: string
+        notificationTitle:
+          type: string
+        notificationBody:
+          type: string
+        actionUrl:
+          type: string
+          format: uri
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        readAt:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+        - id
+        - token
+        - senderName
+        - message
+        - notificationTitle
+        - notificationBody
+        - createdAt
+    InboxList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/InboxItem"
+      required:
+        - items
 paths:
   /healthz:
     get:
@@ -24,13 +155,107 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
-components:
-  schemas:
-    HealthStatus:
-      type: object
-      properties:
-        status:
-          type: string
-      required:
-        - status
+  /inbox:
+    get:
+      operationId: listInbox
+      tags: [inbox]
+      summary: List the signed-in user's inbox
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Inbox messages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxList"
+        "401":
+          description: Authentication required
+    post:
+      operationId: createInboxShare
+      tags: [inbox]
+      summary: Create a shareable notification message
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInboxShareRequest"
+      responses:
+        "201":
+          description: Share created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxShare"
+        "400":
+          description: Invalid share
+        "401":
+          description: Authentication required
+  /inbox/shared/{token}:
+    get:
+      operationId: getSharedNotification
+      tags: [inbox]
+      summary: View a shared notification
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Shared notification
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SharedNotification"
+        "404":
+          description: Share not found
+  /inbox/shared/{token}/claim:
+    post:
+      operationId: claimSharedNotification
+      tags: [inbox]
+      summary: Add a shared notification to the signed-in user's inbox
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "201":
+          description: Inbox item created or already claimed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InboxItem"
+        "401":
+          description: Authentication required
+        "404":
+          description: Share not found
+  /inbox/{id}/read:
+    post:
+      operationId: markInboxRead
+      tags: [inbox]
+      summary: Mark an inbox item as read
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Inbox item marked read
+        "401":
+          description: Authentication required
+        "404":
+          description: Inbox item not found
 

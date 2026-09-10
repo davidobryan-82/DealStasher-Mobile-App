@@ -1,0 +1,1 @@
+- [Shared inbox link flow](shared-inbox-links.md) — shared notifications are tokenized links claimed into the recipient’s authenticated inbox on open.
