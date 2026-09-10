@@ -40,7 +40,7 @@ export default function SignIn() {
           <View style={styles.heading}>
             <Text style={[styles.eyebrow, { color: colors.primary }]}>WELCOME BACK</Text>
             <Text style={[styles.title, { color: colors.foreground }]}>Your deals are still here.</Text>
-            <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>Keep every offer searchable long after your phone clears it.</Text>
+            <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>Keep notifications for a year instead of your OS max 24 hours.</Text>
           </View>
           <GoogleAuthButton redirect={typeof redirect === 'string' ? redirect : undefined} />
           <View style={styles.divider}><View style={[styles.dividerLine, { backgroundColor: colors.border }]} /><Text style={[styles.dividerText, { color: colors.mutedForeground }]}>OR</Text><View style={[styles.dividerLine, { backgroundColor: colors.border }]} /></View>
