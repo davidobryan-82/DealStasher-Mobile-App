@@ -1,0 +1,24 @@
+kind = "mobile"
+previewPath = "/"
+title = "DealStasher"
+description = "A mobile notification vault that keeps deal alerts searchable for months, helps users flag important offers, and sends matching alerts on their schedule."
+version = "1.0.0"
+id = "artifacts/dealstasher"
+router = "expo-domain"
+
+[[services]]
+name = "expo"
+ensurePreviewReachable = "/status"
+paths = [ "/" ]
+localPort = 20290
+
+[services.development]
+run = "pnpm --filter @workspace/dealstasher run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/dealstasher", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/dealstasher", "run", "serve" ]
+
+[services.env]
+PORT = "20290"
+BASE_PATH = "/"
