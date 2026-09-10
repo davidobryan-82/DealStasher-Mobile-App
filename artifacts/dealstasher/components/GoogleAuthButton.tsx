@@ -7,6 +7,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useColors } from '@/hooks/useColors';
 import { getAuthRedirect } from '@/lib/authRedirect';
+import { attemptGoogleAuth } from '@/lib/googleAuth';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -36,31 +37,21 @@ export function GoogleAuthButton({ redirect }: GoogleAuthButtonProps) {
     setLoading(true);
     setError('');
 
-    try {
-      const { createdSessionId, setActive, signIn, signUp } = await startSSOFlow({
-        strategy: 'oauth_google',
-        redirectUrl: AuthSession.makeRedirectUri({
-          scheme: 'dealstasher',
-          path: 'oauth-native',
-        }),
-      });
+    const result = await attemptGoogleAuth(
+      startSSOFlow,
+      AuthSession.makeRedirectUri({
+        scheme: 'dealstasher',
+        path: 'oauth-native',
+      }),
+    );
 
-      if (createdSessionId && setActive) {
-        await setActive({ session: createdSessionId });
-        router.replace(getAuthRedirect(redirect) as Href);
-        return;
-      }
-
-      if (signUp?.status === 'missing_requirements' || signIn?.status === 'needs_first_factor') {
-        setError('Google sign-in needs one more step. Try again or use email instead.');
-      } else {
-        setError('Google sign-in did not finish. Please try again.');
-      }
-    } catch {
-      setError('Google sign-in was cancelled or did not finish. Please try again.');
-    } finally {
-      setLoading(false);
+    if (result.kind === 'active') {
+      router.replace(getAuthRedirect(redirect) as Href);
+    } else {
+      setError(result.message);
     }
+
+    setLoading(false);
   }, [redirect, router, startSSOFlow]);
 
   return (
