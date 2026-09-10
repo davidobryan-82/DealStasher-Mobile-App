@@ -2,35 +2,58 @@ import { Feather } from '@expo/vector-icons';
 import { useAuth } from '@clerk/expo';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as Linking from 'expo-linking';
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useClaimSharedNotification, useGetSharedNotification } from '@workspace/api-client-react';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { Screen } from '@/components/Screen';
 import { useColors } from '@/hooks/useColors';
 import { buildAuthRoute, getSharedInboxRedirect } from '@/lib/authRedirect';
+import { claimSharedInboxOnce, getCompletedSharedInboxClaim } from '@/lib/sharedInboxClaim';
 
 export default function SharedNotification() {
   const colors = useColors();
   const router = useRouter();
-  const { isSignedIn } = useAuth();
+  const { isSignedIn, userId } = useAuth();
   const { token } = useLocalSearchParams<{ token: string }>();
   const shareToken = Array.isArray(token) ? token[0] : token;
   const shared = useGetSharedNotification(shareToken ?? '');
   const claim = useClaimSharedNotification();
-  const claimedToken = useRef<string | null>(null);
-
-  const attemptClaim = useCallback(() => {
-    if (!shareToken || claim.isPending || claim.data) return;
-    claimedToken.current = shareToken;
-    claim.mutate({ token: shareToken });
-  }, [claim.data, claim.isPending, claim.mutate, shareToken]);
+  const claimKey = userId && shareToken ? `${userId}:${shareToken}` : null;
+  const [savedClaim, setSavedClaim] = useState<unknown>(() =>
+    claimKey ? getCompletedSharedInboxClaim(claimKey) : undefined,
+  );
+  const [claimPending, setClaimPending] = useState(false);
+  const [claimError, setClaimError] = useState(false);
 
   useEffect(() => {
-    if (isSignedIn && shared.data && !claim.data && !claim.isPending && claimedToken.current !== shareToken) {
+    setSavedClaim(claimKey ? getCompletedSharedInboxClaim(claimKey) : undefined);
+    setClaimPending(false);
+    setClaimError(false);
+  }, [claimKey]);
+
+  const attemptClaim = useCallback(() => {
+    if (!claimKey || !shareToken || !isSignedIn || claimPending || savedClaim) return;
+
+    setClaimError(false);
+    setClaimPending(true);
+    void claimSharedInboxOnce(claimKey, () => claim.mutateAsync({ token: shareToken }))
+      .then((result) => {
+        setSavedClaim(result);
+      })
+      .catch((error) => {
+        setClaimError(true);
+      })
+      .finally(() => {
+        setClaimPending(false);
+      });
+  }, [claim.mutateAsync, claimKey, claimPending, isSignedIn, savedClaim, shareToken]);
+
+  useEffect(() => {
+    if (isSignedIn && shared.data && !savedClaim && !claimPending) {
       attemptClaim();
     }
-  }, [attemptClaim, claim.data, claim.isPending, isSignedIn, shareToken, shared.data]);
+  }, [attemptClaim, claimPending, isSignedIn, savedClaim, shared.data]);
 
   if (shared.isLoading) {
     return <Screen><View style={styles.center}><ActivityIndicator color={colors.primary} /><Text style={[styles.status, { color: colors.mutedForeground }]}>Opening shared notification…</Text></View></Screen>;
@@ -53,19 +76,19 @@ export default function SharedNotification() {
         <Text style={[styles.title, { color: colors.foreground }]}>{notification.notificationTitle}</Text>
         <Text style={[styles.body, { color: colors.mutedForeground }]}>{notification.notificationBody}</Text>
         <View style={[styles.savedCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Feather name={claim.data ? 'check-circle' : claim.isError ? 'alert-circle' : 'inbox'} size={17} color={claim.isError ? colors.destructive : colors.primary} />
+          <Feather name={savedClaim ? 'check-circle' : claimError ? 'alert-circle' : 'inbox'} size={17} color={claimError ? colors.destructive : colors.primary} />
           <Text style={[styles.savedTitle, { color: colors.foreground }]}>
-            {claim.data ? 'Saved to your inbox' : claim.isError ? 'Could not save to your inbox' : isSignedIn ? 'Saving to your inbox…' : 'Sign in to save this'}
+            {savedClaim ? 'Saved to your inbox' : claimError ? 'Could not save to your inbox' : isSignedIn ? 'Saving to your inbox…' : 'Sign in to save this'}
           </Text>
           <Text style={[styles.savedBody, { color: colors.mutedForeground }]}>
-            {claim.isError
+            {claimError
               ? 'You can still read this shared notification. Try again to save it to your inbox.'
               : isSignedIn
                 ? 'You can find this message anytime from the profile menu.'
                 : 'Create or sign in to a DealStasher account so this shared notification stays with you.'}
           </Text>
-          {isSignedIn && claim.isError && !claim.data && (
-            <PrimaryButton label="Try again" onPress={attemptClaim} loading={claim.isPending} style={styles.button} />
+          {isSignedIn && claimError && !savedClaim && (
+            <PrimaryButton label="Try again" onPress={attemptClaim} loading={claimPending} style={styles.button} />
           )}
         </View>
         {!isSignedIn && <PrimaryButton label="Sign in to save it" onPress={() => router.push(buildAuthRoute('/sign-in', getSharedInboxRedirect(shareToken ?? '')))} style={styles.button} />}
