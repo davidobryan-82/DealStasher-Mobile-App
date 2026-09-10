@@ -150,11 +150,15 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 import java.util.TimeZone;
+import java.util.regex.Pattern;
 
 public class DealStasherNotificationListenerService extends NotificationListenerService {
   private static final String PREFS = "dealstasher-notification-capture";
   private static final String ITEMS = "items";
   private static final int MAX_ITEMS = 500;
+  private static final Pattern DEAL_SIGNAL_PATTERN = Pattern.compile(
+    "(?iu)\\b(?:sales?|deals?|discount(?:ed|s)?|promos?|promotions?|coupons?|clearance|bogo|rewards?|offers?|cash\\s*back|free\\s+shipping|flash\\s+sale|price\\s+drop|limited\\s+time|ends\\s+(?:today|soon)|expires?\\s+(?:today|soon)|use\\s+(?:a\\s+)?code|promo\\s+code|members?['’]?\\s+price|special\\s+offer|exclusive\\s+offer|lowest\\s+price|buy\\s+\\d+\\s*,?\\s*get\\s+\\d+|\\d+\\s*(?:percent|per\\s*cent)\\s+off)\\b"
+  );
 
   @Override
   public void onNotificationPosted(StatusBarNotification statusBarNotification) {
@@ -223,7 +227,7 @@ public class DealStasherNotificationListenerService extends NotificationListener
       char character = text.charAt(index);
       if (character == '%' || Character.getType(character) == Character.CURRENCY_SYMBOL) return true;
     }
-    return false;
+    return DEAL_SIGNAL_PATTERN.matcher(text).find();
   }
 
   private static String isoTime(long millis) {
