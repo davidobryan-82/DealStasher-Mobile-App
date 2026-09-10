@@ -1,4 +1,5 @@
 - [Shared inbox link flow](shared-inbox-links.md) — shared notifications are tokenized links claimed into the recipient’s authenticated inbox on open.
 - [Clerk device verification](clerk-device-verification.md) — native Google OAuth needs signed-device testing and may be blocked by unavailable Auth pane access.
 - [Native notification capture](native-notification-capture.md) — Android can capture with Notification Access; iOS must use explicit share/import because passive cross-app history is unavailable.
+- [Deal relevance gate](deal-relevance-gate.md) — only notifications containing a currency symbol or % enter the visible deal vault.
 - [Dependency-free mobile redirect tests](mobile-redirect-tests.md) — use Node’s built-in runner with pure TypeScript helpers for focused Expo routing tests.
