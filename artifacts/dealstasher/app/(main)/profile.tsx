@@ -2,7 +2,7 @@ import { Feather } from '@expo/vector-icons';
 import { useClerk, useUser } from '@clerk/expo';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { BrandMark } from '@/components/BrandMark';
 import { Screen } from '@/components/Screen';
 import { useDealStasher } from '@/context/DealStasherContext';
@@ -18,12 +18,26 @@ export default function Profile() {
   const router = useRouter();
   const { signOut } = useClerk();
   const { user } = useUser();
-  const { membership, updateMembership, alertConfigs } = useDealStasher();
+  const { membership, updateMembership, alertConfigs, captureStatus, openCaptureSettings, refreshCapturedNotifications } = useDealStasher();
   const name = user?.firstName || user?.emailAddresses?.[0]?.emailAddress?.split('@')[0] || 'Deal hunter';
   const initials = name.slice(0, 1).toUpperCase();
   const membershipLabel = membership === 'trial' ? 'Free trial · 30 days' : membership === 'active' ? 'DealStasher Plus' : membership === 'paused' ? 'Membership paused' : 'Membership cancelled';
   const logout = () => Alert.alert('Log out?', 'You can sign back in anytime.', [{ text: 'Stay signed in', style: 'cancel' }, { text: 'Log out', style: 'destructive', onPress: () => signOut() }]);
   const cancel = () => Alert.alert('Cancel membership?', 'Your notification stash stays on this device, but future alerts and captures will stop after the current period.', [{ text: 'Keep it', style: 'cancel' }, { text: 'Cancel membership', style: 'destructive', onPress: () => updateMembership('cancelled') }]);
+  const connectNotifications = async () => {
+    if (Platform.OS === 'android') {
+      await openCaptureSettings();
+      return;
+    }
+    if (Platform.OS === 'ios') {
+      Alert.alert('Import from iPhone', 'iOS does not allow apps to read every notification automatically. Share a notification’s text or link from another app and choose DealStasher to add it to your stash. DealStasher only stores content you explicitly share.', [{ text: 'Got it' }]);
+      return;
+    }
+    Alert.alert('Use a store build', 'Real notification capture is available in the Android store build. iPhone notifications can be imported through the iOS share extension.');
+  };
+  const captureDetail = Platform.OS === 'android'
+    ? captureStatus === 'enabled' ? 'Connected · capturing new notifications' : 'Tap to enable Android Notification Access'
+    : Platform.OS === 'ios' ? 'Use Share to import notification text or links' : 'Available in the iOS and Android store builds';
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
@@ -33,7 +47,8 @@ export default function Profile() {
         <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>YOUR ACCOUNT</Text>
          <ProfileRow icon="inbox" label="Friend inbox" detail="See notifications shared with you" onPress={() => router.push('/inbox')} />
         <ProfileRow icon="bell" label="Saved match alerts" detail={alertConfigs.length ? `${alertConfigs.length} alert${alertConfigs.length === 1 ? '' : 's'} active` : 'Set up your first alert'} onPress={() => router.push('/alert')} />
-        <ProfileRow icon="smartphone" label="Notification access" detail="Connect the device notification stream" onPress={() => Alert.alert('Connect notifications', 'Android captures notifications through Notification Access. On iPhone, DealStasher uses a notification-sharing extension. The native store build will guide you through enabling the right permission for your device.')} />
+         <ProfileRow icon="smartphone" label="Notification access" detail={captureDetail} onPress={connectNotifications} />
+         {Platform.OS === 'android' && captureStatus === 'enabled' && <ProfileRow icon="refresh-cw" label="Refresh captures" detail="Check for notifications received while the app was closed" onPress={refreshCapturedNotifications} />}
         <ProfileRow icon="pause-circle" label="Pause membership" detail="Temporarily stop billing and alerts" onPress={() => updateMembership(membership === 'paused' ? 'active' : 'paused')} />
         <ProfileRow icon="credit-card" label="Membership & billing" detail="$1.99/month or $20/year" onPress={() => router.push('/subscription')} />
         <Text style={[styles.sectionLabel, { color: colors.mutedForeground, marginTop: 26 }]}>SESSION</Text>

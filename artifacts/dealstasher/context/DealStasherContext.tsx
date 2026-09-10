@@ -1,5 +1,14 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { useIncomingShare } from 'expo-sharing';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { AppState, Platform } from 'react-native';
+import {
+  CapturedNotification,
+  getCapturedNotifications,
+  getNotificationCaptureStatus,
+  NotificationCaptureStatus,
+  openNotificationCaptureSettings,
+} from '@/services/notificationCapture';
 
 export type DateFilter = 'all' | 'today' | 'week' | 'month';
 
@@ -35,100 +44,21 @@ interface StoreState {
 
 interface DealStasherContextValue extends StoreState {
   ready: boolean;
+  captureStatus: NotificationCaptureStatus;
   toggleFlag: (id: string) => void;
   completeTour: () => void;
   saveAlertConfig: (config: AlertConfig) => void;
   updateMembership: (membership: StoreState['membership']) => void;
   clearLocalData: () => void;
+  refreshCapturedNotifications: () => Promise<void>;
+  openCaptureSettings: () => Promise<void>;
+  importSharedNotifications: (values: string[]) => void;
 }
 
 const STORAGE_KEY = 'dealstasher-local-v1';
 
-const seedNotifications: StoredNotification[] = [
-  {
-    id: 'deal-01',
-    appName: 'Target',
-    appColor: '#E7322C',
-    title: 'Circle Week starts now',
-    body: 'Save up to 40% on hundreds of home, beauty, and tech favorites.',
-    capturedAt: '2026-09-10T15:28:00.000Z',
-    isFlagged: true,
-    actionUrl: 'https://www.target.com/circle',
-  },
-  {
-    id: 'deal-02',
-    appName: 'Best Buy',
-    appColor: '#F4C400',
-    title: 'Your saved deal dropped',
-    body: 'The Sony WH-1000XM5 headphones are now $279.99, today only.',
-    capturedAt: '2026-09-10T13:52:00.000Z',
-    isFlagged: false,
-    actionUrl: 'https://www.bestbuy.com/site/searchpage.jsp?st=sony+headphones',
-  },
-  {
-    id: 'deal-03',
-    appName: 'DoorDash',
-    appColor: '#FF3008',
-    title: '$0 delivery all weekend',
-    body: 'Your favorite local spots are ready. Offer ends Sunday at midnight.',
-    capturedAt: '2026-09-10T11:14:00.000Z',
-    isFlagged: true,
-    actionUrl: 'https://www.doordash.com/',
-  },
-  {
-    id: 'deal-04',
-    appName: 'Amazon',
-    appColor: '#FF9900',
-    title: 'Lightning Deal: 38% off',
-    body: 'A deal you viewed is still available for the next 2 hours.',
-    capturedAt: '2026-09-09T22:46:00.000Z',
-    isFlagged: false,
-    actionUrl: 'https://www.amazon.com/gp/goldbox',
-  },
-  {
-    id: 'deal-05',
-    appName: 'Nike',
-    appColor: '#111111',
-    title: 'Members get early access',
-    body: 'Shop the new fall collection before it opens to everyone.',
-    capturedAt: '2026-09-09T18:08:00.000Z',
-    isFlagged: false,
-    actionUrl: 'https://www.nike.com/',
-  },
-  {
-    id: 'deal-06',
-    appName: 'Hulu',
-    appColor: '#1CE783',
-    title: 'Your offer is waiting',
-    body: 'Get 3 months for $2.99/month. This offer is still active.',
-    capturedAt: '2026-09-08T16:22:00.000Z',
-    isFlagged: true,
-    actionUrl: 'https://www.hulu.com/',
-  },
-  {
-    id: 'deal-07',
-    appName: 'Kohl’s',
-    appColor: '#24A9E8',
-    title: '$10 Kohl’s Cash is ready',
-    body: 'Use your reward before it expires this Friday.',
-    capturedAt: '2026-09-08T09:36:00.000Z',
-    isFlagged: false,
-    actionUrl: 'https://www.kohls.com/',
-  },
-  {
-    id: 'deal-08',
-    appName: 'Uber Eats',
-    appColor: '#06C167',
-    title: '20% off your next order',
-    body: 'Because dinner should be easy tonight.',
-    capturedAt: '2026-09-06T19:41:00.000Z',
-    isFlagged: false,
-    actionUrl: 'https://www.ubereats.com/',
-  },
-];
-
 const defaultState: StoreState = {
-  notifications: seedNotifications,
+  notifications: [],
   hasSeenTour: false,
   lastAlertTargets: { email: '', phone: '' },
   alertConfigs: [],
@@ -138,18 +68,84 @@ const defaultState: StoreState = {
 
 const DealStasherContext = createContext<DealStasherContextValue | null>(null);
 
+function createImportedNotification(value: string, index: number): CapturedNotification {
+  let hash = 0;
+  for (let character = 0; character < value.length; character += 1) {
+    hash = (hash * 31 + value.charCodeAt(character)) | 0;
+  }
+  const lines = value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  return {
+    id: `shared-${Math.abs(hash).toString(36)}-${index}`,
+    appName: 'Imported notification',
+    appColor: '#FF6B57',
+    title: lines[0]?.slice(0, 120) || 'Imported notification',
+    body: lines.slice(1).join('\n') || value,
+    capturedAt: new Date().toISOString(),
+    isFlagged: false,
+    actionUrl: /^https?:\/\//i.test(value) ? value : undefined,
+  };
+}
+
 export function DealStasherProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<StoreState>(defaultState);
   const [ready, setReady] = useState(false);
+  const [captureStatus, setCaptureStatus] = useState<NotificationCaptureStatus>('unavailable');
+
+  const mergeNotifications = useCallback((current: StoredNotification[], incoming: CapturedNotification[]) => {
+    const existingById = new Map(current.map((item) => [item.id, item]));
+    incoming.forEach((item) => {
+      const existing = existingById.get(item.id);
+      existingById.set(item.id, { ...item, isFlagged: existing?.isFlagged ?? item.isFlagged });
+    });
+    return Array.from(existingById.values()).sort(
+      (left, right) => new Date(right.capturedAt).getTime() - new Date(left.capturedAt).getTime(),
+    );
+  }, []);
+
+  const refreshCapturedNotifications = useCallback(async () => {
+    const status = await getNotificationCaptureStatus();
+    setCaptureStatus(status);
+    if (status !== 'enabled') return;
+    const captured = await getCapturedNotifications();
+    if (captured.length) {
+      setState((current) => ({ ...current, notifications: mergeNotifications(current.notifications, captured) }));
+    }
+  }, [mergeNotifications]);
+
+  const importSharedNotifications = useCallback((values: string[]) => {
+    const imported = values.map((value, index) => createImportedNotification(value, index));
+    if (imported.length) {
+      setState((current) => ({ ...current, notifications: mergeNotifications(current.notifications, imported) }));
+    }
+  }, [mergeNotifications]);
 
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY)
       .then((saved) => {
-        if (saved) setState({ ...defaultState, ...JSON.parse(saved) });
+        if (saved) {
+          const parsed = JSON.parse(saved) as StoreState;
+          setState({
+            ...defaultState,
+            ...parsed,
+            notifications: (parsed.notifications ?? []).filter((item) => !item.id.startsWith('deal-')),
+          });
+        }
       })
       .catch(() => undefined)
       .finally(() => setReady(true));
   }, []);
+
+  useEffect(() => {
+    void refreshCapturedNotifications();
+    const interval = setInterval(() => void refreshCapturedNotifications(), 15000);
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void refreshCapturedNotifications();
+    });
+    return () => {
+      clearInterval(interval);
+      subscription.remove();
+    };
+  }, [refreshCapturedNotifications]);
 
   useEffect(() => {
     if (ready) AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state)).catch(() => undefined);
@@ -159,6 +155,7 @@ export function DealStasherProvider({ children }: { children: React.ReactNode })
     () => ({
       ...state,
       ready,
+      captureStatus,
       toggleFlag: (id) =>
         setState((current) => ({
           ...current,
@@ -175,11 +172,40 @@ export function DealStasherProvider({ children }: { children: React.ReactNode })
         })),
       updateMembership: (membership) => setState((current) => ({ ...current, membership })),
       clearLocalData: () => setState({ ...defaultState, hasSeenTour: true }),
+      refreshCapturedNotifications,
+      openCaptureSettings: openNotificationCaptureSettings,
+      importSharedNotifications,
     }),
-    [ready, state],
+    [captureStatus, importSharedNotifications, ready, refreshCapturedNotifications, state],
   );
 
-  return <DealStasherContext.Provider value={value}>{children}</DealStasherContext.Provider>;
+  return (
+    <DealStasherContext.Provider value={value}>
+      {children}
+      {Platform.OS !== 'web' && <IncomingShareBridge />}
+    </DealStasherContext.Provider>
+  );
+}
+
+function IncomingShareBridge() {
+  const { sharedPayloads, clearSharedPayloads } = useIncomingShare();
+  const { importSharedNotifications } = useDealStasher();
+  const importedPayloadKey = useRef('');
+
+  useEffect(() => {
+    const payloads = sharedPayloads
+      .filter((payload) => payload.shareType === 'text' || payload.shareType === 'url')
+      .map((payload) => payload.value.trim())
+      .filter(Boolean);
+    if (!payloads.length) return;
+    const payloadKey = payloads.join('\u0000');
+    if (importedPayloadKey.current === payloadKey) return;
+    importedPayloadKey.current = payloadKey;
+    importSharedNotifications(payloads);
+    clearSharedPayloads();
+  }, [clearSharedPayloads, importSharedNotifications, sharedPayloads]);
+
+  return null;
 }
 
 export function useDealStasher() {

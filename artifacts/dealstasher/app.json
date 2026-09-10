@@ -9,12 +9,14 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": false,
+      "bundleIdentifier": "com.dealstasher.app",
       "associatedDomains": [
         "applinks:dealstasher.com",
         "applinks:www.dealstasher.com"
       ]
     },
     "android": {
+      "package": "com.dealstasher.app",
       "intentFilters": [
         {
           "action": "VIEW",
@@ -43,7 +45,32 @@
     },
     "plugins": [
       "expo-router",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-sharing",
+        {
+          "ios": {
+            "enabled": true,
+            "activationRule": {
+              "supportsText": true,
+              "supportsWebUrlWithMaxCount": 5,
+              "supportsWebPageWithMaxCount": 5
+            }
+          },
+          "android": {
+            "enabled": true,
+            "singleShareMimeTypes": [
+              "text/plain",
+              "text/*"
+            ],
+            "multipleShareMimeTypes": [
+              "text/plain",
+              "text/*"
+            ]
+          }
+        }
+      ],
+      "./plugins/withNotificationCapture"
     ],
     "experiments": {
       "typedRoutes": true,
