@@ -2,8 +2,8 @@ import { Feather } from '@expo/vector-icons';
 import { useAuth } from '@clerk/expo';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as Linking from 'expo-linking';
-import React, { useEffect, useRef } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useRef } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useClaimSharedNotification, useGetSharedNotification } from '@workspace/api-client-react';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { Screen } from '@/components/Screen';
@@ -20,15 +20,17 @@ export default function SharedNotification() {
   const claim = useClaimSharedNotification();
   const claimedToken = useRef<string | null>(null);
 
+  const attemptClaim = useCallback(() => {
+    if (!shareToken || claim.isPending || claim.data) return;
+    claimedToken.current = shareToken;
+    claim.mutate({ token: shareToken });
+  }, [claim.data, claim.isPending, claim.mutate, shareToken]);
+
   useEffect(() => {
     if (isSignedIn && shared.data && !claim.data && !claim.isPending && claimedToken.current !== shareToken) {
-      claimedToken.current = shareToken ?? null;
-      claim.mutate(
-        { token: shareToken ?? '' },
-        { onError: () => Alert.alert('Could not save message', 'You can still read the shared notification, but it could not be added to your inbox.') },
-      );
+      attemptClaim();
     }
-  }, [claim, isSignedIn, shareToken, shared.data]);
+  }, [attemptClaim, claim.data, claim.isPending, isSignedIn, shareToken, shared.data]);
 
   if (shared.isLoading) {
     return <Screen><View style={styles.center}><ActivityIndicator color={colors.primary} /><Text style={[styles.status, { color: colors.mutedForeground }]}>Opening shared notification…</Text></View></Screen>;
@@ -50,7 +52,22 @@ export default function SharedNotification() {
         <View style={[styles.senderCard, { backgroundColor: colors.card, borderColor: colors.border }]}><View style={[styles.avatar, { backgroundColor: colors.primary }]}><Text style={[styles.avatarText, { color: colors.primaryForeground }]}>{notification.senderName.slice(0, 1).toUpperCase()}</Text></View><View style={styles.senderCopy}><Text style={[styles.sender, { color: colors.foreground }]}>{notification.senderName} says:</Text><Text style={[styles.message, { color: colors.primary }]}>{notification.message || 'This made me think of you.'}</Text></View></View>
         <Text style={[styles.title, { color: colors.foreground }]}>{notification.notificationTitle}</Text>
         <Text style={[styles.body, { color: colors.mutedForeground }]}>{notification.notificationBody}</Text>
-        <View style={[styles.savedCard, { backgroundColor: colors.card, borderColor: colors.border }]}><Feather name="inbox" size={17} color={colors.primary} /><Text style={[styles.savedTitle, { color: colors.foreground }]}>{claim.data ? 'Saved to your inbox' : isSignedIn ? 'Saving to your inbox…' : 'Sign in to save this'}</Text><Text style={[styles.savedBody, { color: colors.mutedForeground }]}>{isSignedIn ? 'You can find this message anytime from the profile menu.' : 'Create or sign in to a DealStasher account so this shared notification stays with you.'}</Text></View>
+        <View style={[styles.savedCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Feather name={claim.data ? 'check-circle' : claim.isError ? 'alert-circle' : 'inbox'} size={17} color={claim.isError ? colors.destructive : colors.primary} />
+          <Text style={[styles.savedTitle, { color: colors.foreground }]}>
+            {claim.data ? 'Saved to your inbox' : claim.isError ? 'Could not save to your inbox' : isSignedIn ? 'Saving to your inbox…' : 'Sign in to save this'}
+          </Text>
+          <Text style={[styles.savedBody, { color: colors.mutedForeground }]}>
+            {claim.isError
+              ? 'You can still read this shared notification. Try again to save it to your inbox.'
+              : isSignedIn
+                ? 'You can find this message anytime from the profile menu.'
+                : 'Create or sign in to a DealStasher account so this shared notification stays with you.'}
+          </Text>
+          {isSignedIn && claim.isError && !claim.data && (
+            <PrimaryButton label="Try again" onPress={attemptClaim} loading={claim.isPending} style={styles.button} />
+          )}
+        </View>
         {!isSignedIn && <PrimaryButton label="Sign in to save it" onPress={() => router.push(buildAuthRoute('/sign-in', getSharedInboxRedirect(shareToken ?? '')))} style={styles.button} />}
         {!!notification.actionUrl && <Pressable onPress={openOffer} style={[styles.offerButton, { backgroundColor: colors.secondary }]}><Feather name="external-link" size={17} color={colors.foreground} /><Text style={[styles.offerText, { color: colors.foreground }]}>Open original offer</Text></Pressable>}
       </ScrollView>
