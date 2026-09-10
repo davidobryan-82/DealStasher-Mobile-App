@@ -3,6 +3,7 @@ import { Link, useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import React, { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { BrandMark } from '@/components/BrandMark';
+import { GoogleAuthButton } from '@/components/GoogleAuthButton';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { Screen } from '@/components/Screen';
 import { useColors } from '@/hooks/useColors';
@@ -52,6 +53,7 @@ export default function SignUp() {
             <Text style={[styles.title, { color: colors.foreground }]}>{isVerification ? 'Check your inbox.' : 'Never lose a good deal again.'}</Text>
             <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>{isVerification ? `We sent a verification code to ${email}.` : 'Create your free account and keep the offers your phone forgets.'}</Text>
           </View>
+          {!isVerification && <><GoogleAuthButton redirect={typeof redirect === 'string' ? redirect : undefined} /><View style={styles.divider}><View style={[styles.dividerLine, { backgroundColor: colors.border }]} /><Text style={[styles.dividerText, { color: colors.mutedForeground }]}>OR</Text><View style={[styles.dividerLine, { backgroundColor: colors.border }]} /></View></>}
           {isVerification ? (
             <>
               <Text style={[styles.label, { color: colors.foreground }]}>Verification code</Text>
@@ -99,4 +101,7 @@ const styles = StyleSheet.create({
   switchText: { fontFamily: 'Inter_400Regular', fontSize: 14 },
   link: { fontFamily: 'Inter_600SemiBold', fontSize: 14 },
   legal: { textAlign: 'center', fontFamily: 'Inter_400Regular', fontSize: 12, marginTop: 40 },
+  divider: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 24 },
+  dividerLine: { height: 1, flex: 1 },
+  dividerText: { fontFamily: 'Inter_600SemiBold', fontSize: 11, letterSpacing: 1 },
 });
