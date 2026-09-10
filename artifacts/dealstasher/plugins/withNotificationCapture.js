@@ -169,6 +169,7 @@ public class DealStasherNotificationListenerService extends NotificationListener
       extras.getCharSequence(Notification.EXTRA_INFO_TEXT)
     );
     if (title.length() == 0 && body.length() == 0) return;
+    if (!hasDealRelevanceSignal(title, body)) return;
 
     String id = sourcePackage + ":" + statusBarNotification.getKey();
     String appName = sourcePackage;
@@ -207,6 +208,15 @@ public class DealStasherNotificationListenerService extends NotificationListener
       if (value != null && value.toString().trim().length() > 0) return value.toString().trim();
     }
     return "";
+  }
+
+  private static boolean hasDealRelevanceSignal(String title, String body) {
+    String text = title + " " + body;
+    for (int index = 0; index < text.length(); index++) {
+      char character = text.charAt(index);
+      if (character == '%' || Character.getType(character) == Character.CURRENCY_SYMBOL) return true;
+    }
+    return false;
   }
 
   private static String isoTime(long millis) {

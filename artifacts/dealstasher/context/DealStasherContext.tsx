@@ -9,6 +9,7 @@ import {
   NotificationCaptureStatus,
   openNotificationCaptureSettings,
 } from '@/services/notificationCapture';
+import { hasDealRelevanceSignal } from '@/services/dealRelevance';
 
 export type DateFilter = 'all' | 'today' | 'week' | 'month';
 
@@ -92,8 +93,12 @@ export function DealStasherProvider({ children }: { children: React.ReactNode })
   const [captureStatus, setCaptureStatus] = useState<NotificationCaptureStatus>('unavailable');
 
   const mergeNotifications = useCallback((current: StoredNotification[], incoming: CapturedNotification[]) => {
-    const existingById = new Map(current.map((item) => [item.id, item]));
-    incoming.forEach((item) => {
+    const existingById = new Map(
+      current
+        .filter((item) => hasDealRelevanceSignal(item.title, item.body))
+        .map((item) => [item.id, item]),
+    );
+    incoming.filter((item) => hasDealRelevanceSignal(item.title, item.body)).forEach((item) => {
       const existing = existingById.get(item.id);
       existingById.set(item.id, { ...item, isFlagged: existing?.isFlagged ?? item.isFlagged });
     });
@@ -113,7 +118,9 @@ export function DealStasherProvider({ children }: { children: React.ReactNode })
   }, [mergeNotifications]);
 
   const importSharedNotifications = useCallback((values: string[]) => {
-    const imported = values.map((value, index) => createImportedNotification(value, index));
+    const imported = values
+      .map((value, index) => createImportedNotification(value, index))
+      .filter((item) => hasDealRelevanceSignal(item.title, item.body));
     if (imported.length) {
       setState((current) => ({ ...current, notifications: mergeNotifications(current.notifications, imported) }));
     }
@@ -127,7 +134,9 @@ export function DealStasherProvider({ children }: { children: React.ReactNode })
           setState({
             ...defaultState,
             ...parsed,
-            notifications: (parsed.notifications ?? []).filter((item) => !item.id.startsWith('deal-')),
+            notifications: (parsed.notifications ?? []).filter(
+              (item) => !item.id.startsWith('deal-') && hasDealRelevanceSignal(item.title, item.body),
+            ),
           });
         }
       })
