@@ -7,6 +7,9 @@ const fs = require('fs');
 const path = require('path');
 
 const nativePackage = 'com.dealstasher.notificationcapture';
+const { alternatives: dealSignalAlternatives } = require('../services/dealSignalPatterns.js');
+const dealPhrasePatternSource = `\\b(?:${dealSignalAlternatives.join('|')})\\b`;
+const javaDealPhrasePatternSource = dealPhrasePatternSource.replace(/\\/g, '\\\\');
 const nativeFiles = {
   'DealStasherNotificationModule.java': `package ${nativePackage};
 
@@ -157,7 +160,7 @@ public class DealStasherNotificationListenerService extends NotificationListener
   private static final String ITEMS = "items";
   private static final int MAX_ITEMS = 500;
   private static final Pattern DEAL_SIGNAL_PATTERN = Pattern.compile(
-    "(?iu)\\b(?:sales?|deals?|discount(?:ed|s)?|promos?|promotions?|coupons?|clearance|bogo|rewards?|offers?|cash\\s*back|free\\s+shipping|flash\\s+sale|price\\s+drop|limited\\s+time|ends\\s+(?:today|soon)|expires?\\s+(?:today|soon)|use\\s+(?:a\\s+)?code|promo\\s+code|members?['’]?\\s+price|special\\s+offer|exclusive\\s+offer|lowest\\s+price|buy\\s+\\d+\\s*,?\\s*get\\s+\\d+|\\d+\\s*(?:percent|per\\s*cent)\\s+off)\\b"
+    "(?iu)${javaDealPhrasePatternSource}"
   );
 
   @Override
@@ -298,3 +301,7 @@ module.exports = function withNotificationCapture(config) {
     return dangerousConfig;
   }]);
 };
+
+// Exposed for the device-free parity test; the plugin still exports the config plugin function.
+module.exports.nativeFiles = nativeFiles;
+module.exports.dealPhrasePatternSource = dealPhrasePatternSource;
